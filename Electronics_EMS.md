@@ -178,6 +178,104 @@ Foxconn mô tả 3 bước lõi: **In kem hàn → Gắp đặt → Hàn reflow*
 - Hàn không chì cần nhiệt độ cao hơn hàn có chì (~350–370°C so với ~330–350°C).
 - Thông gió tốt, tránh hít khói hàn; không chạm tay trực tiếp vào đầu mỏ hàn.
 
+### 4.6. ⭐ Đọc bản vẽ & tài liệu sản xuất SMT (Data Package)
+
+> Đây là câu hỏi rất hay gặp cho vị trí Process/NPI/Test/SMT Engineer: *"Bạn có biết đọc bản vẽ SMT không? Kể tên các file trong bộ tài liệu sản xuất PCBA?"*
+
+Một bộ tài liệu (Data Package) chuẩn giao cho nhà máy EMS gồm:
+
+| File / Tài liệu | Nội dung | Ai dùng |
+|---|---|---|
+| **Schematic** (sơ đồ nguyên lý) | Kết nối logic giữa các linh kiện; ký hiệu chuẩn (R1, C2, U3…) + net name (VCC, GND, D+, D-…) | Test/Debug/NPI engineer |
+| **PCB Layout / Board file** | Bản vẽ vật lý: vị trí linh kiện, trace, via, các lớp đồng | Layout/NPI |
+| **Gerber files** | Bộ file chuẩn công nghiệp mô tả từng lớp PCB để fab sản xuất board trần | Fab / PCB shop |
+| **Drill file (Excellon)** | Tọa độ & đường kính lỗ khoan (via, mounting hole) | Fab |
+| **BOM** (Bill of Materials) | Danh sách linh kiện: designator, giá trị, part number (MPN), package, số lượng, alternate part | Purchasing / SMT / IQC |
+| **Pick & Place / Centroid / CPL** | CSV: designator, X-Y, góc xoay, layer (Top/Bottom) → máy P&P đọc để gắp đặt | SMT programming |
+| **Assembly Drawing** | Ghi chú lắp ráp: hướng linh kiện phân cực (diode/IC/tụ hóa), DNP, hướng cắm connector | Line operator, IPQC |
+| **Stencil file** | File chế tạo khuôn thép in kem hàn (thường lấy từ paste layer Gerber) | Stencil shop |
+| **Fab Notes / Fab Drawing** | Số lớp, độ dày, vật liệu (FR-4 Tg170), impedance control, surface finish (HASL/ENIG/OSP), màu solder mask | Fab |
+
+**Ý nghĩa các lớp Gerber phổ biến** (đuôi file có thể khác tùy tool):
+
+| Lớp | Ký hiệu | Ý nghĩa |
+|---|---|---|
+| Top Copper | GTL | Đường đồng mặt trên |
+| Bottom Copper | GBL | Đường đồng mặt dưới |
+| Top / Bottom Solder Mask | GTS / GBS | Lớp phủ xanh chống hàn dính ngoài pad |
+| Top / Bottom Silkscreen | GTO / GBO | Chữ trắng in ký hiệu linh kiện |
+| Top / Bottom Paste | GTP / GBP | Vùng in kem hàn → dùng làm stencil |
+| Board Outline | GKO / GML | Đường viền cắt board |
+| Drill | TXT / NC / XLN | Tọa độ lỗ khoan |
+
+**Cách đọc Schematic nhanh (mẹo phỏng vấn)**:
+1. Tìm **power rails** trước (VCC, 3V3, 1V8, GND) — thường trên/dưới cùng.
+2. Tìm **IC chính** (U1/U2 — MCU, SoC, PMIC) — trái tim của board.
+3. Đi theo tín hiệu I/O: **connector (J) → protection (TVS/ferrite) → IC → tải**.
+4. Chú ý **net name** (nhãn) — schematic ít khi vẽ hết dây, dùng label thay thế.
+5. Chú ý ghi chú **DNP** (Do Not Populate) — linh kiện có in trên board nhưng KHÔNG lắp.
+
+**Cách tìm 1 linh kiện thực tế trên board từ bản vẽ**:
+- Có designator (VD: `R42`) → tra tọa độ X-Y trong **Pick & Place file** → nhìn silkscreen trên board (nhớ mirror khi lật sang Bottom).
+- **Test Point (TP1, TP2…)** là điểm được cấp riêng cho việc đo/kích tín hiệu — kỹ sư test hay dùng.
+
+### 4.7. ⭐ Reference Designator (ký hiệu linh kiện) — thuộc lòng
+
+Theo chuẩn IEEE 315 / IPC — nhìn schematic hay BOM đều gặp:
+
+| Ký hiệu | Linh kiện | Ghi chú |
+|---|---|---|
+| **R** | Resistor | Điện trở |
+| **RN** | Resistor Network/Array | Nhiều điện trở trong 1 gói |
+| **C** | Capacitor | Tụ (nhớ nhìn cực cho tụ hóa/tantalum) |
+| **L** | Inductor | Cuộn cảm |
+| **FB** | Ferrite Bead | Chặn nhiễu HF |
+| **D** | Diode | Bao gồm LED, Zener, TVS |
+| **Q** | Transistor | BJT hoặc MOSFET |
+| **U** | IC (Integrated Circuit) | MCU, op-amp, PMIC, memory… |
+| **Y** hoặc **X** | Crystal / Oscillator | Thạch anh, dao động |
+| **J** | Connector / Jack | Cắm dây/cable |
+| **P** | Plug | Đầu cắm rời |
+| **SW** hoặc **S** | Switch | Nút/công tắc |
+| **F** | Fuse | Cầu chì |
+| **T** | Transformer | Biến áp |
+| **K** | Relay | Rơ-le |
+| **BT** | Battery | Pin |
+| **TP** | Test Point | Điểm đo/kích |
+| **MH** | Mounting Hole | Lỗ bắt vít |
+
+Mẹo nhớ: **R**esistor, **C**ap, **L**inductor, **U**nit (IC), **Q** = transistor, **J**ack (connector), **TP** = test point, **FB** = ferrite bead.
+
+### 4.8. ⭐ Package linh kiện SMT (kiểu chân) — hay hỏi kích thước & phương pháp kiểm tra
+
+**a) Điện trở / tụ chip 2 chân** — mã inch = kích thước (LxW):
+- **0201** = 0.6 × 0.3 mm (rất nhỏ — smartphone hi-end, đòi hỏi máy P&P chuẩn)
+- **0402** = 1.0 × 0.5 mm (phổ biến trong board dày đặc)
+- **0603** = 1.6 × 0.8 mm (phổ biến board dân dụng/công nghiệp)
+- **0805**, **1206** — lớn hơn, chịu công suất/áp cao hơn
+
+**b) Diode / Transistor rời**:
+- **SOD-123**, **SOD-323**: diode nhỏ
+- **SOT-23** (3 chân), **SOT-89**, **SOT-223**: transistor rời / regulator nhỏ
+- **DPAK / TO-252**, **D2PAK / TO-263**: MOSFET / regulator công suất
+
+**c) IC nhỏ – vừa** (chân lộ ra ngoài — AOI kiểm tra được):
+- **SOIC** (Small Outline IC) — 2 hàng chân gull-wing
+- **TSSOP / SSOP** — thinner/shrink SOIC
+- **QFP / LQFP / TQFP** (Quad Flat Package) — 4 cạnh, chân gull-wing
+- **QFN** (Quad Flat No-lead) — không chân, pad dưới bụng + pad quanh mép → **kiểm tra biên vẫn thấy**
+- **DFN** — như QFN nhưng chỉ 2 cạnh
+
+**d) IC lớn / bộ nhớ / SoC** (chân/bi ẩn dưới bụng):
+- **BGA** (Ball Grid Array) — mảng bi hàn dưới bụng chip → **AOI KHÔNG nhìn được** → phải dùng **AXI (X-Ray)** để kiểm tra mối hàn.
+- **LGA** (Land Grid Array) — pad phẳng dưới bụng
+- **CSP / WLCSP** (Wafer-Level Chip-Scale Package) — kích thước gần bằng die silicon, cực nhỏ
+
+**Câu hỏi bẫy hay gặp**:
+- *"Lỗi hàn dưới BGA phát hiện bằng phương pháp nào?"* → **AXI / X-Ray** (AOI không nhìn xuyên được).
+- *"0402 khác 0603 ở đâu?"* → Kích thước & độ dày đặc; 0402 nhỏ hơn ⇒ khó hàn tay, cần máy chuẩn, tiết kiệm diện tích board.
+- *"Vì sao QFN/BGA cần thermal pad nối GND?"* → Tản nhiệt cho chip + giảm inductance ground.
+
 ---
 
 ## ⭐ 5. Kiểm tra & Test trong sản xuất (cực kỳ hay hỏi ở EMS)
@@ -193,6 +291,41 @@ Foxconn mô tả 3 bước lõi: **In kem hàn → Gắp đặt → Hàn reflow*
 **Câu chốt để nhớ**: *ICT hỏi "board có được lắp đúng không?", FCT hỏi "board có chạy đúng không?"*
 
 **Điểm nhấn cho bạn**: FCT thường cần **viết phần mềm test** (C++/C#/Python) để cấp kích thích, đọc output, so sánh spec, log kết quả → đúng thế mạnh của bạn.
+
+### 5.6. ⭐ Tư duy logic debug lỗi trên dây chuyền (câu hỏi tình huống hay gặp)
+
+> Đây là câu quyết định điểm phỏng vấn cho vị trí Test/Process/Quality: nhà tuyển dụng muốn nghe **quy trình tư duy** chứ không phải câu trả lời may rủi.
+
+**Quy trình chuẩn khi 1 board fail ở FCT/ICT** (nhớ theo thứ tự):
+
+1. **Reproduce (tái hiện)** — chạy lại test 2–3 lần. Lỗi *ổn định* hay *ngẫu nhiên (intermittent)*? Ghi lại điều kiện (nhiệt độ, thời gian, thứ tự bước).
+2. **Isolate (khoanh vùng)** —
+   - Đọc log/error code: module nào fail (nguồn / RF / USB / storage / display)?
+   - Nếu **cả 1 lô** cùng fail 1 loại lỗi → nghi ngờ **process** hoặc **lot vật tư**.
+   - Nếu chỉ **1–2 board** → nghi ngờ **lỗi lắp ráp cá biệt** (hàn, đặt sai).
+3. **Compare good vs bad** — đặt 1 board GOOD song song, đo cùng điểm ⇒ điện áp / tần số / dòng khác ở đâu? Đây là kỹ thuật tìm ra 80% lỗi trong 15 phút.
+4. **Half-split (chia đôi)** — signal chain có N khối → đo ngay điểm GIỮA để chia đôi vùng nghi, lặp lại. Thuật toán O(log N) thay vì O(N).
+5. **Top-down power-up** — thứ tự bắt buộc khi board "không lên":
+   1. Đo VBUS/VIN vào
+   2. Fuse (F1) còn thông không?
+   3. Output của LDO/DC-DC (3V3, 1V8…) đủ không?
+   4. Enable pin của chip nguồn có đúng mức?
+   5. Clock (thạch anh) có dao động không?
+   6. Reset chân RST đã nhả cao chưa?
+   7. Strap/boot pin có đúng cấu hình?
+6. **Đọc ngược từ hiện tượng** — VD: LED không sáng → kiểm nguồn LED → kiểm tín hiệu điều khiển (base/gate transistor) → kiểm firmware set GPIO.
+7. **Root cause** — dùng **5-Why** hoặc **Fishbone (Ishikawa) 6M**: **M**an / **M**achine / **M**aterial / **M**ethod / **M**easurement / **E**nvironment (Mother nature).
+8. **Verify & document (8D)** — xác nhận fix trên nhiều board, cập nhật SOP/traveler/AOI recipe, đóng vòng CAPA (Corrective/Preventive Action).
+
+**Câu chốt phỏng vấn** (nói to lên khi trả lời):
+> *"Tôi luôn tách 3 giả thuyết đầu tiên: **lỗi vật tư — lỗi lắp ráp — lỗi thiết kế**. So sánh 1 board tốt vs board xấu ở cùng điểm đo thường cho câu trả lời trong 15 phút, rồi mới quyết định có cần escalate lên R&D không."*
+
+**Sai lầm nhà tuyển dụng hay test bạn**:
+- Sửa mà không hiểu nguyên nhân → lỗi quay lại (không đóng được vòng 8D).
+- Không **containment** lô đang chạy → lỗi lan rộng, thiệt hại nhân lên.
+- Đổ lỗi cho công nhân trước khi kiểm jig/SOP/vật tư.
+- Chỉ nhìn board fail, không so với board pass.
+- Không log lại — lần sau gặp lại phải làm từ đầu.
 
 ---
 
@@ -215,6 +348,56 @@ Nhấn mạnh những thứ này để khác biệt với ứng viên thuần đ
 - **Giao tiếp thiết bị**: UART/RS-232, SPI, I²C, CAN (bạn đã quen từ Automotive!), Ethernet/TCP-IP, Modbus (công nghiệp).
 - **Tự động hóa test**: viết script điều khiển thiết bị đo (SCPI qua GPIB/USB/LAN), thu log, phân tích thống kê (Cp/Cpk).
 - **Firmware/Embedded**: nền Yocto/glibc/ARM của bạn rất giá trị cho vị trí embedded.
+
+### 7.5. ⭐ Hiểu phần cứng — kiến thức "phải biết" cho Test/NPI/Debug
+
+> Đây là phần thể hiện bạn KHÔNG chỉ code mà thực sự **hiểu board đang chạy như thế nào** — cực kỳ ghi điểm.
+
+**a) Power rails & phân cấp nguồn**
+- Một board điện tử thường có **nhiều mức điện áp**: VBUS 5V (USB) → **3V3** (I/O logic) → **1V8** (IO chip mới) → **1V2 / 1V0** (core CPU) — được tạo bởi **LDO** hoặc **DC-DC buck**.
+- **LDO** (Low-Dropout Regulator): đơn giản, ít nhiễu, nhưng hiệu suất thấp (sinh nhiệt) khi sụt áp lớn.
+- **Buck converter** (DC-DC): hiệu suất cao (>90%), phức tạp hơn, có nhiễu switching.
+- **Nguyên tắc vàng của Test engineer**: khi board bất thường, **luôn đo rails trước** bằng đồng hồ hoặc scope.
+
+**b) Decoupling capacitor ("tụ lọc nguồn cục bộ")**
+- Mỗi chân VCC của IC thường có **1 tụ 100 nF** đặt SÁT chân + **1 tụ lớn 10 μF** dùng chung cho khối.
+- Vai trò: giữ áp ổn định khi IC chuyển mạch nhanh, giảm nhiễu HF, giảm impedance đường nguồn ở tần số cao.
+- **Câu hỏi bẫy**: *"Tại sao mỗi IC lại có nhiều tụ 100 nF chứ không dùng 1 tụ lớn?"* → Tụ nhỏ có ESL/ESR thấp ở tần số cao, tụ lớn hiệu quả ở tần số thấp — kết hợp để phủ dải rộng.
+- **Vị trí đặt tụ**: càng SÁT chân IC càng tốt (giảm inductance đường dẫn).
+
+**c) Ground plane & Signal Integrity cơ bản**
+- **Ground plane** = 1 lớp đồng phủ kín làm đường về dòng nhiễu → giảm EMI, giảm crosstalk, ổn định impedance.
+- Với tín hiệu tốc độ cao (**USB, HDMI, DDR, MIPI, Ethernet**):
+  - **Impedance control**: single-ended ~50 Ω, differential ~90–100 Ω.
+  - **Length matching**: chiều dài D+ và D− phải bằng nhau (thường ±5 mil) → nên có đoạn zig-zag ("serpentine") để bù chiều dài.
+  - **Reference plane liên tục**: không được cắt ground bên dưới đường tín hiệu cao tốc.
+
+**d) Clock, Reset, Boot flow** (rất hay hỏi cho vị trí embedded/debug)
+- Mỗi MCU/SoC cần: **clock** (thạch anh Y1 + 2 tụ tải, hoặc oscillator nội) + **reset** (nút RST + IC supervisor / POR nội).
+- **Boot flow chuẩn**:
+  1. Reset nhả cao → 2. Clock ổn định → 3. Đọc **strap/boot pins** để chọn nguồn boot (ROM/Flash/SD/USB) → 4. Nạp bootloader → 5. Nạp OS/firmware.
+- **Khi board "không boot"**: kiểm 4 bước đầu — VCC → clock → reset → strap pins. Đây là mẫu câu trả lời chuẩn.
+
+**e) Cổng debug trên board — biết để tận dụng**
+- **JTAG** (5 chân TCK/TMS/TDI/TDO/TRST) — chuẩn cũ, mạnh, dùng cho chain nhiều chip.
+- **SWD** (2 chân SWDIO + SWCLK) — chuẩn ARM Cortex, gọn, dùng với ST-Link/J-Link.
+- **UART console** (3 chân TX/RX/GND, thường 115200-8N1) — hầu hết embedded Linux board có, in log boot.
+- Các chân này thường lộ ra ở **Test Point (TP)** hoặc header nhỏ → kỹ sư test/firmware hay câu để debug.
+
+**f) Bảo vệ mạch — linh kiện "vệ sĩ"**
+- **TVS diode** (Transient Voltage Suppressor): chống xung ESD/surge trên đường I/O (USB, HDMI…).
+- **Ferrite bead (FB)**: chặn nhiễu HF trên đường nguồn (thường ở lối vào VCC).
+- **Fuse (F1)** hoặc **PTC resettable (polyfuse)**: cắt dòng khi ngắn mạch/quá tải.
+- **Reverse polarity protection**: diode nối tiếp hoặc MOSFET P kênh cắm ngược.
+- **Câu hỏi bẫy**: *"Ferrite bead khác cuộn cảm ở đâu?"* → Bead có Q thấp, biểu hiện như trở kháng ở HF ("lossy"), tiêu tán năng lượng nhiễu thành nhiệt; cuộn cảm tích trữ năng lượng.
+
+**g) Câu hỏi phỏng vấn phần cứng thường gặp**
+- *"Board không lên nguồn, checklist đo?"* → Đo VBUS vào → fuse thông → LDO/buck output → enable pin → feedback pin.
+- *"Board đôi khi reset ngẫu nhiên?"* → Thiếu tụ decoupling → sụt áp brown-out; hoặc watchdog kick; nhiệt độ cao; ESD; nhiễu switching.
+- *"Vì sao cặp trace USB đi song song và uốn zig-zag?"* → Differential pair + length matching để D+/D− đồng bộ pha.
+- *"Vì sao BGA phải kiểm bằng X-Ray?"* → Bi hàn nằm dưới bụng chip, AOI không nhìn xuyên được.
+- *"Sự khác nhau giữa LDO và Buck?"* → LDO tuyến tính, ít nhiễu, nóng khi sụt áp lớn; Buck switching, hiệu suất cao, có ripple.
+- *"Vì sao MCU cần thạch anh ngoài khi có clock nội?"* → Cần độ chính xác cao cho UART/USB/RTC; clock nội (RC) trôi theo nhiệt & nguồn.
 
 ---
 
@@ -247,6 +430,18 @@ Nhấn mạnh những thứ này để khác biệt với ứng viên thuần đ
 11. **Làm sao biết mối hàn tốt hay xấu?** → Theo IPC-A-610: mối hàn hình phễu sáng bóng, đều, không cầu chì/rỗ khí/nguội (mục 4.5d).
 12. **Hàn tay khác hàn máy (reflow/wave) ở điểm nào? Khi nào dùng hàn tay?** → Hàn tay dùng cho rework, linh kiện đặc biệt, mẫu thử; hàn máy dùng cho sản xuất hàng loạt (mục 4.5a).
 
+### Nhóm đọc bản vẽ & phần cứng (rất hay hỏi cho Test/NPI/Process)
+13. **Bộ tài liệu sản xuất PCBA gồm những gì?** → Schematic, PCB layout, Gerber, Drill, BOM, Pick&Place, Assembly drawing, Stencil, Fab notes (mục 4.6).
+14. **File Pick & Place chứa thông tin gì? Máy dùng làm gì?** → Designator, X-Y, góc xoay, layer Top/Bottom → máy P&P đọc để gắp đặt linh kiện đúng vị trí.
+15. **Kể vài reference designator hay gặp trên schematic?** → R (điện trở), C (tụ), L (cuộn cảm), U (IC), Q (transistor), D (diode/LED), J (connector), Y/X (thạch anh), TP (test point), FB (ferrite bead).
+16. **DNP trên assembly drawing nghĩa là gì?** → Do Not Populate — linh kiện có in trên board nhưng KHÔNG lắp (cấu hình option, hoặc rework backup).
+17. **0402 là gì? Khác 0603 thế nào?** → Kích thước tụ/trở chip theo inch: 0402 = 1.0×0.5 mm, 0603 = 1.6×0.8 mm; 0402 nhỏ hơn, dùng cho board mật độ cao.
+18. **BGA phát hiện lỗi hàn bằng gì?** → AXI / X-Ray, vì AOI không thấy bi hàn ẩn dưới bụng chip.
+19. **Board không lên nguồn, bạn kiểm tra theo thứ tự nào?** → Top-down: VBUS → Fuse → LDO/Buck out → Enable pin → Clock → Reset → Strap pins (mục 5.6 & 7.5g).
+20. **Vì sao mỗi chân VCC của IC cần tụ 100 nF sát chân?** → Decoupling: giữ áp ổn định khi IC chuyển mạch, giảm impedance đường nguồn ở tần số cao, giảm nhiễu.
+21. **Cách bạn khoanh vùng lỗi khi 1 board FCT fail?** → Reproduce → Isolate (log + so sánh 1 lô hay lẻ) → **Compare good vs bad** → Half-split → Root cause 5-Why → Verify & 8D (mục 5.6).
+22. **Ferrite bead khác cuộn cảm ở đâu?** → Bead "lossy" ở HF, tiêu tán nhiễu thành nhiệt; cuộn cảm tích trữ năng lượng, ít mất mát.
+
 ### Nhóm tình huống (STAR: Situation–Task–Action–Result)
 9. **"Phát hiện lỗi hàng loạt trên PCB trước khi xuất, xử lý sao?"**
    → Dừng dây chuyền → cách ly lô hàng (containment) → phân tích root-cause (5-Why/Fishbone) → sửa quy trình → kiểm tra lại → báo cáo 8D.
@@ -271,6 +466,15 @@ Nhấn mạnh những thứ này để khác biệt với ứng viên thuần đ
 - [ ] **Quy trình SMT 8 bước** (thuộc lòng)
 - [ ] Lỗi hàn: tombstoning, bridging, cold joint, voiding
 - [ ] Kỹ năng hàn tay: 5 bước hàn, chuẩn IPC-A-610, hàn tay vs hàn máy, hàn chì vs không chì
+- [ ] **Bộ tài liệu sản xuất SMT**: Schematic, PCB layout, Gerber (GTL/GBL/GTS/GTO/GTP), Drill, BOM, Pick&Place, Assembly, Stencil, Fab notes
+- [ ] **Reference designator**: R, C, L, U, Q, D, J, Y, TP, FB, RN — hiểu ý nghĩa
+- [ ] **Package SMT**: 0201/0402/0603/0805, SOT-23, SOIC, QFP, QFN, BGA — biết BGA phải X-Ray
+- [ ] **Cách đọc schematic**: power rails → IC chính → I/O chain → net name → DNP
+- [ ] **Quy trình debug FCT**: Reproduce → Isolate → Compare good/bad → Half-split → Top-down power-up → 5-Why → 8D
+- [ ] **Hiểu phần cứng**: power rails (LDO/Buck), decoupling cap 100nF, ground plane, impedance/length matching cho HS signals
+- [ ] **Boot flow embedded**: VCC → Clock → Reset → Strap pins → bootloader
+- [ ] **Cổng debug**: JTAG, SWD, UART console — biết dùng Test Point
+- [ ] **Bảo vệ mạch**: TVS, Ferrite bead, Fuse/PTC, reverse polarity
 - [ ] AOI / X-Ray / ICT / FCT / Burn-in (phân biệt rõ)
 - [ ] PLC, relay, contactor, biến tần, cảm biến
 - [ ] ESD, RoHS, Yield/FPY, DFM, 8D/5-Why, SPC/Cpk
